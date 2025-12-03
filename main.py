@@ -4,6 +4,7 @@ from routers import students, reminder
 
 app = FastAPI(title="TEST-ABURRIDONT")
 
+# CORS: permitir llamadas desde cualquier origen (después lo afinamos)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,5 +17,6 @@ app.add_middleware(
 def root():
     return {"msg": "API funcionando", "cors": True}
 
+# Routers
 app.include_router(students.router)
 app.include_router(reminder.router)
