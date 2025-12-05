@@ -13,3 +13,5 @@ class DB_Student(Base):
     cuota = Column(Integer, nullable=True)
     activo = Column(Boolean, default=True, nullable=True)  
     individual = Column(Boolean, default=False, nullable=True)
+    pago = Column(Boolean, default=False, nullable=True)
+

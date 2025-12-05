@@ -2,10 +2,11 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from database.connection import SessionLocal
 from models.DB_Student import DB_Student
-from services.api_whatsapp_services import send_whatsapp_template
+from services.api_whatsapp_services import send_whatsapp_template, send_whatsapp_text
+import time
 
 router = APIRouter(prefix="/whatsapp", tags=["WhatsApp"])
-
+    
 def get_db():
     db = SessionLocal()
     try:
@@ -27,9 +28,9 @@ def enviar_recordatorio_pago(student_id: int, db: Session = Depends(get_db)):
         raise HTTPException(400, "El alumno no tiene teléfono registrado")
 
     variables = [
-        alumno.nombre,
-        "1 al 10",          # {{2}} – período (puede ser dinámico)
-        str(alumno.cuota),  # {{3}} – monto
+        alumno.nombre,       # {{1}}
+        "1 al 10",           # {{2}}
+        str(alumno.cuota)    # {{3}}
     ]
 
     return send_whatsapp_template(
@@ -39,7 +40,7 @@ def enviar_recordatorio_pago(student_id: int, db: Session = Depends(get_db)):
     )
 
 
-# ENVIAR MENSAJE DE BIENVENIDA
+# 2) ENVIAR MENSAJE DE BIENVENIDA
 @router.post("/bienvenida/{student_id}")
 def enviar_bienvenida(student_id: int, db: Session = Depends(get_db)):
 
@@ -52,10 +53,10 @@ def enviar_bienvenida(student_id: int, db: Session = Depends(get_db)):
         raise HTTPException(400, "El alumno no tiene teléfono registrado")
 
     variables = [
-        alumno.nombre,           # {{1}}
-        "12 de marzo",           # {{2}} – fecha de inicio (dinámico si querés)
-        alumno.dias_clase or "", # {{3}}
-        alumno.hora_clase or "", # {{4}}
+        alumno.nombre,            # {{1}}
+        "12 de marzo",            # {{2}}
+        alumno.dias_clase or "",  # {{3}}
+        alumno.hora_clase or ""   # {{4}}
     ]
 
     return send_whatsapp_template(
@@ -63,11 +64,9 @@ def enviar_bienvenida(student_id: int, db: Session = Depends(get_db)):
         template_name="bienvenida_inicio_curso",
         variables=variables
     )
-    
-from services.api_whatsapp_services import send_whatsapp_template, send_whatsapp_text
-import time
 
 
+# 3) PLANTILLA + TEXTO (doble mensaje)
 @router.post("/pago/doble/{student_id}")
 def enviar_recordatorio_pago_completo(student_id: int, db: Session = Depends(get_db)):
 
@@ -79,25 +78,20 @@ def enviar_recordatorio_pago_completo(student_id: int, db: Session = Depends(get
     if not alumno.telefono:
         raise HTTPException(400, "El alumno no tiene teléfono registrado")
 
-
-    # 1) VARIABLES PARA LA PLANTILLA
     variables = [
         alumno.nombre,
-        "1 al 10", 
+        "1 al 10",
         str(alumno.cuota or 0)
     ]
 
-    # 2) ENVIAR PLANTILLA
     plantilla_response = send_whatsapp_template(
         to_number=alumno.telefono,
         template_name="pago_pendiente_mensualidad",
         variables=variables
     )
 
-    # 3) ESPERAR 1 SEGUNDO
     time.sleep(1)
 
-    # 4) MENSAJE LIBRE POST PLANTILLA
     mensaje_extra = f"""
 Alias: tmaneyro.nx
 CBU: 4530000800014889546168
@@ -116,3 +110,22 @@ Cuando realices el pago, enviame el comprobante.
         "plantilla": plantilla_response,
         "mensaje_extra": msg_response
     }
+
+
+# 4) TEST - ENVIAR PLANTILLA DE BIENVENIDA A TU NÚMERO
+@router.post("/test/bienvenida")
+def test_bienvenida():
+    numero = "5491169004497"  # tu número en formato internacional
+
+    variables = [
+        "Lumen",          # {{1}} nombre
+        "12 de marzo",    # {{2}} fecha
+        "Miércoles",      # {{3}} días_clase
+        "18:00 hs"        # {{4}} hora_clase
+    ]
+
+    return send_whatsapp_template(
+        to_number=numero,
+        template_name="bienvenida_inicio_curso",
+        variables=variables
+    )

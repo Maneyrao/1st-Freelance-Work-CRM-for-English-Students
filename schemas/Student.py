@@ -12,6 +12,7 @@ class StudentBase(BaseModel):
     cuota: Optional[int] = None
     activo: Optional[bool] = True
     individual: Optional[bool] = False
+    pago: Optional[bool] = False
 #pass porque es lo estandar de fastapi, se usa para los post en la api.
 class StudentCreate(StudentBase):
     pass
@@ -21,3 +22,16 @@ class StudentRead(StudentBase):
     id: int
     class Config:
         orm_mode = True
+
+
+
+class StudentUpdate(BaseModel):
+    nombre: Optional[str] = None
+    telefono: Optional[str] = None
+    nivel: Optional[str] = None
+    dias_clase: Optional[str] = None
+    hora_clase: Optional[str] = None
+    cuota: Optional[int] = None
+    activo: Optional[bool] = None
+    individual: Optional[bool] = None
+    pago: Optional[bool] = None
