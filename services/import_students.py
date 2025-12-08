@@ -1,13 +1,14 @@
+import os
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
 from sqlalchemy.orm import Session
 from database.connection import SessionLocal
 from models.DB_Student import DB_Student
 
-sheet_url = "https://docs.google.com/spreadsheets/d/1oI7fAMAJT61EPPvdzqz-TvCdNOVNcp75hfSvnmz3n6Q/edit?usp=sharing"
 
 def to_bool(value):
     return str(value).strip().lower() in ("true", "1", "si", "sí", "yes")
+
 
 def to_int(value):
     try:
@@ -15,16 +16,38 @@ def to_int(value):
     except:
         return None
 
+
 def import_students_from_sheet():
-    scope = [
-        "https://spreadsheets.google.com/feeds",
+
+    # 1️⃣ Leer variables de entorno desde Railway
+    sheet_id = os.getenv("GOOGLE_SHEET_ID")
+    service_account_info = os.getenv("GOOGLE_SERVICE_ACCOUNT")
+
+    if not sheet_id or not service_account_info:
+        print("Faltan variables GOOGLE_SHEET_ID o GOOGLE_SERVICE_ACCOUNT")
+        return
+
+    #Convertir JSON del service account a dict
+    import json
+    service_account_dict = json.loads(service_account_info)
+
+    # Definir alcance
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
     ]
-    creds = ServiceAccountCredentials.from_json_keyfile_name("creds.json", scope)
+
+    #Credenciales desde variables de entorno (no desde archivo)
+    creds = Credentials.from_service_account_info(
+        service_account_dict, scopes=scopes
+    )
+
     client = gspread.authorize(creds)
 
-    sheet = client.open_by_url(sheet_url).sheet1
+    #Abrir sheet por ID (NO URL)
+    sheet = client.open_by_key(sheet_id).sheet1
 
+    #Leer datos con encabezados obligatorios
     rows = sheet.get_all_records(expected_headers=[
         "nombre",
         "telefono",
@@ -42,14 +65,15 @@ def import_students_from_sheet():
         nombre = row.get("nombre")
         telefono = row.get("telefono")
 
-        # Se identifica alumno por nombre + teléfono
+        if not nombre:
+            continue
+
         existing = db.query(DB_Student).filter(
             DB_Student.nombre == nombre,
             DB_Student.telefono == telefono
         ).first()
 
         if existing:
-            #si existe, se actualiza.
             existing.nivel = row.get("nivel")
             existing.dias_clase = row.get("dias_clase")
             existing.hora_clase = row.get("hora_clase")
@@ -57,8 +81,7 @@ def import_students_from_sheet():
             existing.activo = to_bool(row.get("activo"))
             existing.individual = to_bool(row.get("individual"))
         else:
-            #se crea si no existe
-            student = DB_Student(
+            new_student = DB_Student(
                 nombre=nombre,
                 telefono=telefono,
                 nivel=row.get("nivel"),
@@ -68,9 +91,9 @@ def import_students_from_sheet():
                 activo=to_bool(row.get("activo")),
                 individual=to_bool(row.get("individual")),
             )
-            db.add(student)
+            db.add(new_student)
 
     db.commit()
     db.close()
 
-    print("Importación completa")
+    print("Importación completa desde Google Sheets ✔")
