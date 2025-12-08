@@ -8,22 +8,24 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS CONFIG (mejor cerrada)
+# CORS CONFIG
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # en producción usar dominios específicos
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Crear tablas si no existen
+# Crear tablas
 Base.metadata.create_all(bind=engine)
 
-# Routers principales
+# Routers
 app.include_router(students.router)
 app.include_router(reminder.router)
 app.include_router(whatsapp.router)
 
-# (Opcional) Eliminar router de pruebas
-# app.include_router(test_plantilla.router)
+# Ruta raíz
+@app.get("/")
+def root():
+    return {"msg": "API funcionando", "cors": True}
