@@ -1,4 +1,5 @@
 import os
+import json
 import gspread
 from google.oauth2.service_account import Credentials
 from sqlalchemy.orm import Session
@@ -19,35 +20,41 @@ def to_int(value):
 
 def import_students_from_sheet():
 
-    # 1️⃣ Leer variables de entorno desde Railway
+    # 1) Leer variables de entorno desde Railway
     sheet_id = os.getenv("GOOGLE_SHEET_ID")
     service_account_info = os.getenv("GOOGLE_SERVICE_ACCOUNT")
 
     if not sheet_id or not service_account_info:
-        print("Faltan variables GOOGLE_SHEET_ID o GOOGLE_SERVICE_ACCOUNT")
+        print(" Faltan GOOGLE_SHEET_ID o GOOGLE_SERVICE_ACCOUNT")
         return
 
-    #Convertir JSON del service account a dict
-    import json
-    service_account_dict = json.loads(service_account_info)
+    try:
+        # Convertir JSON del service account en dict
+        # Railway a veces agrega \n escapados, esto lo corrige
+        service_account_dict = json.loads(service_account_info)
+    except Exception as e:
+        print("Error parseando GOOGLE_SERVICE_ACCOUNT:", e)
+        return
 
-    # Definir alcance
+    # 2) Definir alcance
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
     ]
 
-    #Credenciales desde variables de entorno (no desde archivo)
+    # 3) Credenciales desde variables de entorno
     creds = Credentials.from_service_account_info(
-        service_account_dict, scopes=scopes
+        service_account_dict,
+        scopes=scopes
     )
 
+    # 4) Autorización
     client = gspread.authorize(creds)
 
-    #Abrir sheet por ID (NO URL)
+    # 5) Abrir sheet por ID (NO URL)
     sheet = client.open_by_key(sheet_id).sheet1
 
-    #Leer datos con encabezados obligatorios
+    # 6) Leer registros
     rows = sheet.get_all_records(expected_headers=[
         "nombre",
         "telefono",
@@ -66,7 +73,7 @@ def import_students_from_sheet():
         telefono = row.get("telefono")
 
         if not nombre:
-            continue
+            continue  # fila vacía
 
         existing = db.query(DB_Student).filter(
             DB_Student.nombre == nombre,
@@ -96,4 +103,4 @@ def import_students_from_sheet():
     db.commit()
     db.close()
 
-    print("Importación completa desde Google Sheets ✔")
+    print("✔ Importación completa desde Google Sheets")
