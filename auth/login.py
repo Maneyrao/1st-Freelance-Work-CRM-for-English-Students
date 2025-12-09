@@ -1,49 +1,51 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from jose import jwt, JWTError
+from jose import jwt
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from models.DB_Student import User
+
+from models.DB_User import DB_User
 from database.connection import get_db
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 ALGORITHM = "HS256"
-
-oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/login")
-
-
-crypt = CryptContext(schemes=["bcrypt"])
-
-
-acces_token_duration = 10
 SECRET = "J3"
-exception400= status.HTTP_400_BAD_REQUEST
+oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/login")
+crypt = CryptContext(schemes=["bcrypt"], deprecated="auto")
+ACCESS_TOKEN_DURATION_MIN = 60
+
 
 @router.post("/login")
+async def login(
+    form: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
 
-async def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == form.username).first()
+    user = db.query(DB_User).filter(DB_User.username == form.username).first()
     if not user:
         raise HTTPException(
-           status_code = exception400,detail="el usuario no se ha encontrado" ) 
-        
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El usuario no fue encontrado"
+        )
 
-    
-    
     if not crypt.verify(form.password, user.password):
         raise HTTPException(
-            status_code = exception400, detail="la contraseña no coincide")
-        
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La contraseña es incorrecta"
+        )
 
-    acces_token_expiration = timedelta(minutes=acces_token_duration)
-    
-    acces_token = jwt.encode(
-    {"sub": user.username, "exp": datetime.utcnow() + timedelta(minutes=acces_token_duration)},
-    SECRET,
-    algorithm=ALGORITHM
+    expiration = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_DURATION_MIN)
+
+    access_token = jwt.encode(
+        {"sub": user.username, "exp": expiration},
+        SECRET,
+        algorithm=ALGORITHM
     )
 
-    return {"access_token": acces_token, "token_type": "bearer"}
-
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in": ACCESS_TOKEN_DURATION_MIN * 60
+    }

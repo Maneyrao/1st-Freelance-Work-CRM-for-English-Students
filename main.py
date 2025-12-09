@@ -1,14 +1,16 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import students, reminder, whatsapp
+
+from auth.login import router as auth_router
+from routers.students import router as students_router
+from routers.reminder import router as reminder_router
+from routers.whatsapp import router as whatsapp_router
+from routers.register import router as register_router
+
 from database.connection import Base, engine
 
-app = FastAPI(
-    title="Aburridont API",
-    version="1.0.0"
-)
+app = FastAPI()
 
-# CORS CONFIG
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,15 +19,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Crear tablas
 Base.metadata.create_all(bind=engine)
 
 # Routers
-app.include_router(students.router)
-app.include_router(reminder.router)
-app.include_router(whatsapp.router)
-
-# Ruta raíz
-@app.get("/")
-def root():
-    return {"msg": "API funcionando", "cors": True}
+app.include_router(auth_router)
+app.include_router(students_router)
+app.include_router(reminder_router)
+app.include_router(whatsapp_router)
+app.include_router(register_router)
