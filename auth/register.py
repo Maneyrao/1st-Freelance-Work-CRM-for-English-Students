@@ -10,9 +10,11 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 
 crypt = CryptContext(schemes=["bcrypt"])
 
+
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def register(new_user: UserCreate, db: Session = Depends(get_db)):
 
+    # Verificar si el usuario ya existe
     existing = db.query(DB_User).filter(DB_User.username == new_user.username).first()
     if existing:
         raise HTTPException(
@@ -20,13 +22,16 @@ async def register(new_user: UserCreate, db: Session = Depends(get_db)):
             detail="El nombre de usuario ya está en uso."
         )
 
+    # Hashear la contraseña
     hashed_password = crypt.hash(new_user.password)
 
+    # Crear usuario nuevo
     user = DB_User(
         username=new_user.username,
         password=hashed_password
     )
 
+    # Guardar en la base de datos
     db.add(user)
     db.commit()
     db.refresh(user)

@@ -5,7 +5,7 @@ from auth.login import router as auth_router
 from routers.students import router as students_router
 from routers.reminder import router as reminder_router
 from routers.whatsapp import router as whatsapp_router
-from routers.register import router as register_router
+from auth.register import router as register_router
 
 from database.connection import Base, engine
 
