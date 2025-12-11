@@ -5,6 +5,9 @@ from models.DB_Student import DB_Student
 from services.api_whatsapp_services import send_whatsapp_template, send_whatsapp_text
 import time
 
+from auth.jwt_auth import current_user   
+
+
 router = APIRouter(prefix="/whatsapp", tags=["WhatsApp"])
     
 def get_db():
@@ -17,7 +20,11 @@ def get_db():
 
 # 1) ENVIAR RECORDATORIO DE PAGO POR ID
 @router.post("/pago/{student_id}")
-def enviar_recordatorio_pago(student_id: int, db: Session = Depends(get_db)):
+def enviar_recordatorio_pago(
+    student_id: int,
+    db: Session = Depends(get_db),
+    user = Depends(current_user)   
+):
 
     alumno = db.query(DB_Student).filter(DB_Student.id == student_id).first()
 
@@ -42,7 +49,11 @@ def enviar_recordatorio_pago(student_id: int, db: Session = Depends(get_db)):
 
 # 2) ENVIAR MENSAJE DE BIENVENIDA
 @router.post("/bienvenida/{student_id}")
-def enviar_bienvenida(student_id: int, db: Session = Depends(get_db)):
+def enviar_bienvenida(
+    student_id: int,
+    db: Session = Depends(get_db),
+    user = Depends(current_user)   
+):
 
     alumno = db.query(DB_Student).filter(DB_Student.id == student_id).first()
 
@@ -68,7 +79,11 @@ def enviar_bienvenida(student_id: int, db: Session = Depends(get_db)):
 
 # 3) PLANTILLA + TEXTO (doble mensaje)
 @router.post("/pago/doble/{student_id}")
-def enviar_recordatorio_pago_completo(student_id: int, db: Session = Depends(get_db)):
+def enviar_recordatorio_pago_completo(
+    student_id: int,
+    db: Session = Depends(get_db),
+    user = Depends(current_user)   
+):
 
     alumno = db.query(DB_Student).filter(DB_Student.id == student_id).first()
 
@@ -114,8 +129,10 @@ Cuando realices el pago, enviame el comprobante.
 
 # 4) TEST - ENVIAR PLANTILLA DE BIENVENIDA A TU NÚMERO
 @router.post("/test/bienvenida")
-def test_bienvenida():
-    numero = "5491169004497"  # tu número en formato internacional
+def test_bienvenida(
+    user = Depends(current_user)  
+):
+    numero = "5491169004497"  #tu número en formato internacional
 
     variables = [
         "Lumen",          # {{1}} nombre

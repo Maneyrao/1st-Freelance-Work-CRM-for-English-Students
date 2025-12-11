@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from database.connection import SessionLocal
 from models.DB_Student import DB_Student
 from services.api_whatsapp_services import send_whatsapp_text
+from auth.jwt_auth import current_user
     
 
 router = APIRouter(prefix="/reminders", tags=["Reminders"])
@@ -17,7 +18,9 @@ def get_db():
 
 # TEST
 @router.post("/test")
-def test_reminder():
+def test_reminder(
+    user = Depends(current_user)   
+):
     try:
         response = send_whatsapp_text(
             "5491169004497",
@@ -30,7 +33,11 @@ def test_reminder():
 
 # RECORDATORIO A UN SOLO ALUMNO
 @router.post("/send/{student_id}")
-def send_reminder_to_student(student_id: int, db: Session = Depends(get_db)):
+def send_reminder_to_student(
+    student_id: int,
+    db: Session = Depends(get_db),
+    user = Depends(current_user)   
+):
     student = db.query(DB_Student).filter(DB_Student.id == student_id).first()
 
     if not student:
@@ -57,7 +64,10 @@ def send_reminder_to_student(student_id: int, db: Session = Depends(get_db)):
 
 # RECORDATORIOS A TODOS LOS ACTIVOS
 @router.post("/send-all-actives")
-def send_reminders_to_all(db: Session = Depends(get_db)):
+def send_reminders_to_all(
+    db: Session = Depends(get_db),
+    user = Depends(current_user)   
+):
     students = db.query(DB_Student).filter(DB_Student.activo == True).all()
 
     if not students:
@@ -90,7 +100,10 @@ def send_reminders_to_all(db: Session = Depends(get_db)):
 
 # RECORDATORIOS DE PAGO GLOBAL
 @router.post("/payment-reminders")
-def send_payment_reminders(db: Session = Depends(get_db)):
+def send_payment_reminders(
+    db: Session = Depends(get_db),
+    user = Depends(current_user)   
+):
     students = db.query(DB_Student).filter(DB_Student.activo == True).all()
 
     if not students:
@@ -130,5 +143,3 @@ def send_payment_reminders(db: Session = Depends(get_db)):
         "ya_pagaron": pagados,
         "sin_telefono": sin_telefono
     }
-
-
