@@ -7,27 +7,27 @@ from database.connection import Base, engine
 from models.DB_Student import DB_Student
 from models.DB_User import DB_User
 
-# Crear tablas
+app = FastAPI()
+
+# HABILITAR CORS — NECESARIO PARA QUE V0/Vercel PUEDAN CONECTAR CON RAILWAY
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],          # Durante desarrollo -> permite todo
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 Base.metadata.create_all(bind=engine)
 
-# Importar routers DESPUÉS (para evitar circulares)
+#se importan routers DESPUÉS (evita problemas de import circular)
 from auth.login import router as auth_router
 from auth.register import router as register_router
 from routers.students import router as students_router
 from routers.reminder import router as reminder_router
 from routers.whatsapp import router as whatsapp_router
 
-app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Routers
+#Registrar rutas
 app.include_router(auth_router)
 app.include_router(register_router)
 app.include_router(students_router)
