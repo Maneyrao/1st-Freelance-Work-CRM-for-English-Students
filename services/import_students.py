@@ -20,41 +20,42 @@ def to_int(value):
 
 def import_students_from_sheet():
 
-    # 1) Leer variables de entorno desde Railway
+    # 1) Leer variables
     sheet_id = os.getenv("GOOGLE_SHEET_ID")
-    service_account_info = os.getenv("GOOGLE_SERVICE_ACCOUNT")
+    raw_service_account = os.getenv("GOOGLE_SERVICE_ACCOUNT")
 
-    if not sheet_id or not service_account_info:
-        print(" Faltan GOOGLE_SHEET_ID o GOOGLE_SERVICE_ACCOUNT")
-        return
+    if not sheet_id or not raw_service_account:
+        print("Faltan GOOGLE_SHEET_ID o GOOGLE_SERVICE_ACCOUNT")
+        return {"error": "Missing environment variables"}
 
     try:
-        # Convertir JSON del service account en dict
-        # Railway a veces agrega \n escapados, esto lo corrige
-        service_account_dict = json.loads(service_account_info)
+        # Railway escapa los saltos de línea 
+        corrected_json = raw_service_account.replace("\\n", "\n")
+
+        service_account_dict = json.loads(corrected_json)
     except Exception as e:
         print("Error parseando GOOGLE_SERVICE_ACCOUNT:", e)
-        return
+        return {"error": "Invalid GOOGLE_SERVICE_ACCOUNT JSON"}
 
-    # 2) Definir alcance
+    # 2) Scopes
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
     ]
 
-    # 3) Credenciales desde variables de entorno
+    # 3) Credenciales
     creds = Credentials.from_service_account_info(
         service_account_dict,
         scopes=scopes
     )
 
-    # 4) Autorización
+    # 4) Autorizar
     client = gspread.authorize(creds)
 
-    # 5) Abrir sheet por ID (NO URL)
+    # 5) Abrir sheet
     sheet = client.open_by_key(sheet_id).sheet1
 
-    # 6) Leer registros
+    # 6) Leer datos
     rows = sheet.get_all_records(expected_headers=[
         "nombre",
         "telefono",
@@ -73,7 +74,7 @@ def import_students_from_sheet():
         telefono = row.get("telefono")
 
         if not nombre:
-            continue  # fila vacía
+            continue
 
         existing = db.query(DB_Student).filter(
             DB_Student.nombre == nombre,
@@ -104,3 +105,4 @@ def import_students_from_sheet():
     db.close()
 
     print("✔ Importación completa desde Google Sheets")
+    return {"status": "ok", "imported": len(rows)}

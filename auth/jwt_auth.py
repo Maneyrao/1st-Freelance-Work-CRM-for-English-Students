@@ -4,17 +4,15 @@ from jose import jwt, JWTError
 from jose.exceptions import ExpiredSignatureError
 from sqlalchemy.orm import Session
 import os
-
+from dotenv import load_dotenv  
 from schemas.user import UserRead
 from models.DB_User import DB_User
 from database.connection import get_db
 
+load_dotenv()  # carga las variables del archivo .env ANTES de leer SECRET_KEY
 
-# =========================
-# CONFIGURACIÓN DE JWT 
-# =========================
 ALGORITHM = "HS256"
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = os.getenv("SECRET_KEY")  #ahora sí existe, porque load_dotenv() está arriba
 
 if not SECRET_KEY:
     raise RuntimeError("SECRET_KEY no configurada en variables de entorno.")
@@ -58,9 +56,13 @@ async def auth_user(
         )
     except JWTError:
         raise exception401
+
     user = db.query(DB_User).filter(DB_User.username == username).first()
     if not user:
         raise exception404
+
     return UserRead.model_validate(user)
+
+
 async def current_user(user: UserRead = Depends(auth_user)):
     return user
