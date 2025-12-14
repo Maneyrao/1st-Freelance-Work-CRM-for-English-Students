@@ -35,3 +35,6 @@ class StudentUpdate(BaseModel):
     activo: Optional[bool] = None
     individual: Optional[bool] = None
     pago: Optional[bool] = None
+    
+    
+    

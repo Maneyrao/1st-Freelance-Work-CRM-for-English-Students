@@ -3,6 +3,10 @@ import json
 import gspread
 from google.oauth2.service_account import Credentials
 from sqlalchemy.orm import Session
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from database.connection import SessionLocal
 from models.DB_Student import DB_Student
 
@@ -14,48 +18,49 @@ def to_bool(value):
 def to_int(value):
     try:
         return int(value)
-    except:
+    except (TypeError, ValueError):
         return None
 
 
 def import_students_from_sheet():
-
-    # 1) Leer variables
+    
     sheet_id = os.getenv("GOOGLE_SHEET_ID")
-    raw_service_account = os.getenv("GOOGLE_SERVICE_ACCOUNT")
 
-    if not sheet_id or not raw_service_account:
-        print("Faltan GOOGLE_SHEET_ID o GOOGLE_SERVICE_ACCOUNT")
-        return {"error": "Missing environment variables"}
+    # Path al service account (default: service_account.json)
+    service_account_path = os.getenv(
+        "GOOGLE_SERVICE_ACCOUNT_PATH",
+        "service_account.json"
+    )
 
+    if not sheet_id:
+        raise RuntimeError("Falta GOOGLE_SHEET_ID")
+
+    if not os.path.exists(service_account_path):
+        raise RuntimeError(
+            f"No se encuentra el archivo de credenciales: {service_account_path}"
+        )
     try:
-        # Railway escapa los saltos de línea 
-        corrected_json = raw_service_account.replace("\\n", "\n")
-
-        service_account_dict = json.loads(corrected_json)
+        with open(service_account_path, "r", encoding="utf-8") as f:
+            service_account_dict = json.load(f)
     except Exception as e:
-        print("Error parseando GOOGLE_SERVICE_ACCOUNT:", e)
-        return {"error": "Invalid GOOGLE_SERVICE_ACCOUNT JSON"}
+        raise RuntimeError("Error leyendo service_account.json") from e
 
-    # 2) Scopes
+
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
     ]
 
-    # 3) Credenciales
+
     creds = Credentials.from_service_account_info(
         service_account_dict,
         scopes=scopes
     )
 
-    # 4) Autorizar
     client = gspread.authorize(creds)
-
-    # 5) Abrir sheet
     sheet = client.open_by_key(sheet_id).sheet1
 
-    # 6) Leer datos
+
     rows = sheet.get_all_records(expected_headers=[
         "nombre",
         "telefono",
@@ -67,42 +72,54 @@ def import_students_from_sheet():
         "individual"
     ])
 
+   
     db: Session = SessionLocal()
 
-    for row in rows:
-        nombre = row.get("nombre")
-        telefono = row.get("telefono")
+    try:
+        for row in rows:
+            nombre = row.get("nombre")
+            telefono = row.get("telefono")
 
-        if not nombre:
-            continue
+            if not nombre:
+                continue
 
-        existing = db.query(DB_Student).filter(
-            DB_Student.nombre == nombre,
-            DB_Student.telefono == telefono
-        ).first()
+            existing = db.query(DB_Student).filter(
+                DB_Student.nombre == nombre,
+                DB_Student.telefono == telefono
+            ).first()
 
-        if existing:
-            existing.nivel = row.get("nivel")
-            existing.dias_clase = row.get("dias_clase")
-            existing.hora_clase = row.get("hora_clase")
-            existing.cuota = to_int(row.get("cuota"))
-            existing.activo = to_bool(row.get("activo"))
-            existing.individual = to_bool(row.get("individual"))
-        else:
-            new_student = DB_Student(
-                nombre=nombre,
-                telefono=telefono,
-                nivel=row.get("nivel"),
-                dias_clase=row.get("dias_clase"),
-                hora_clase=row.get("hora_clase"),
-                cuota=to_int(row.get("cuota")),
-                activo=to_bool(row.get("activo")),
-                individual=to_bool(row.get("individual")),
-            )
-            db.add(new_student)
+            if existing:
+                existing.nivel = row.get("nivel")
+                existing.dias_clase = row.get("dias_clase")
+                existing.hora_clase = row.get("hora_clase")
+                existing.cuota = to_int(row.get("cuota"))
+                existing.activo = to_bool(row.get("activo"))
+                existing.individual = to_bool(row.get("individual"))
+            else:
+                db.add(DB_Student(
+                    nombre=nombre,
+                    telefono=telefono,
+                    nivel=row.get("nivel"),
+                    dias_clase=row.get("dias_clase"),
+                    hora_clase=row.get("hora_clase"),
+                    cuota=to_int(row.get("cuota")),
+                    activo=to_bool(row.get("activo")),
+                    individual=to_bool(row.get("individual")),
+                ))
 
-    db.commit()
-    db.close()
+        db.commit()
 
-    print("✔ Importación completa desde Google Sheets")
-    return {"status": "ok", "imported": len(rows)}
+    finally:
+        db.close()
+
+    print(f"✔ Importación completa ({len(rows)} alumnos)")
+
+    return {
+        "status": "ok",
+        "imported": len(rows)
+    }
+
+
+# Permite ejecución directa
+if __name__ == "__main__":
+    import_students_from_sheet()
