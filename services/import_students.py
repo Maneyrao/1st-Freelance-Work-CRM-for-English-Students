@@ -23,8 +23,13 @@ def to_int(value):
         return None
 
 
+def normalize_str(value):
+    if value is None:
+        return None
+    return str(value).strip()
+
+
 def load_google_credentials():
-    # Detectar Railway
     is_railway = bool(os.getenv("RAILWAY_ENVIRONMENT"))
 
     if is_railway:
@@ -38,11 +43,8 @@ def load_google_credentials():
             decoded = base64.b64decode(raw_b64).decode("utf-8")
             return json.loads(decoded)
         except Exception as e:
-            raise RuntimeError(
-                "GOOGLE_SERVICE_ACCOUNT_B64 inválido"
-            ) from e
+            raise RuntimeError("GOOGLE_SERVICE_ACCOUNT_B64 inválido") from e
 
-    # LOCAL
     service_account_path = os.getenv(
         "GOOGLE_SERVICE_ACCOUNT_PATH",
         "service_account.json"
@@ -92,10 +94,10 @@ def import_students_from_sheet():
 
     try:
         for row in rows:
-            nombre = row.get("nombre")
-            telefono = row.get("telefono")
+            nombre = normalize_str(row.get("nombre"))
+            telefono = normalize_str(row.get("telefono"))
 
-            if not nombre:
+            if not nombre or not telefono:
                 continue
 
             existing = db.query(DB_Student).filter(
@@ -104,9 +106,9 @@ def import_students_from_sheet():
             ).first()
 
             if existing:
-                existing.nivel = row.get("nivel")
-                existing.dias_clase = row.get("dias_clase")
-                existing.hora_clase = row.get("hora_clase")
+                existing.nivel = normalize_str(row.get("nivel"))
+                existing.dias_clase = normalize_str(row.get("dias_clase"))
+                existing.hora_clase = normalize_str(row.get("hora_clase"))
                 existing.cuota = to_int(row.get("cuota"))
                 existing.activo = to_bool(row.get("activo"))
                 existing.individual = to_bool(row.get("individual"))
@@ -114,9 +116,9 @@ def import_students_from_sheet():
                 db.add(DB_Student(
                     nombre=nombre,
                     telefono=telefono,
-                    nivel=row.get("nivel"),
-                    dias_clase=row.get("dias_clase"),
-                    hora_clase=row.get("hora_clase"),
+                    nivel=normalize_str(row.get("nivel")),
+                    dias_clase=normalize_str(row.get("dias_clase")),
+                    hora_clase=normalize_str(row.get("hora_clase")),
                     cuota=to_int(row.get("cuota")),
                     activo=to_bool(row.get("activo")),
                     individual=to_bool(row.get("individual")),
