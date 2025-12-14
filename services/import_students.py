@@ -1,5 +1,6 @@
 import os
 import json
+import base64
 import gspread
 from google.oauth2.service_account import Credentials
 from sqlalchemy.orm import Session
@@ -22,35 +23,51 @@ def to_int(value):
         return None
 
 
-def import_students_from_sheet():
-    
-    sheet_id = os.getenv("GOOGLE_SHEET_ID")
+def load_google_credentials():
+    # Detectar Railway
+    is_railway = bool(os.getenv("RAILWAY_ENVIRONMENT"))
 
-    # Path al service account (default: service_account.json)
+    if is_railway:
+        raw_b64 = os.getenv("GOOGLE_SERVICE_ACCOUNT_B64")
+        if not raw_b64:
+            raise RuntimeError(
+                "Railway detectado pero GOOGLE_SERVICE_ACCOUNT_B64 no está definido"
+            )
+
+        try:
+            decoded = base64.b64decode(raw_b64).decode("utf-8")
+            return json.loads(decoded)
+        except Exception as e:
+            raise RuntimeError(
+                "GOOGLE_SERVICE_ACCOUNT_B64 inválido"
+            ) from e
+
+    # LOCAL
     service_account_path = os.getenv(
         "GOOGLE_SERVICE_ACCOUNT_PATH",
         "service_account.json"
     )
 
+    if not os.path.exists(service_account_path):
+        raise RuntimeError(
+            f"No se encuentra {service_account_path} (modo local)"
+        )
+
+    with open(service_account_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def import_students_from_sheet():
+    sheet_id = os.getenv("GOOGLE_SHEET_ID")
     if not sheet_id:
         raise RuntimeError("Falta GOOGLE_SHEET_ID")
 
-    if not os.path.exists(service_account_path):
-        raise RuntimeError(
-            f"No se encuentra el archivo de credenciales: {service_account_path}"
-        )
-    try:
-        with open(service_account_path, "r", encoding="utf-8") as f:
-            service_account_dict = json.load(f)
-    except Exception as e:
-        raise RuntimeError("Error leyendo service_account.json") from e
-
+    service_account_dict = load_google_credentials()
 
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
     ]
-
 
     creds = Credentials.from_service_account_info(
         service_account_dict,
@@ -59,7 +76,6 @@ def import_students_from_sheet():
 
     client = gspread.authorize(creds)
     sheet = client.open_by_key(sheet_id).sheet1
-
 
     rows = sheet.get_all_records(expected_headers=[
         "nombre",
@@ -72,7 +88,6 @@ def import_students_from_sheet():
         "individual"
     ])
 
-   
     db: Session = SessionLocal()
 
     try:
@@ -112,14 +127,11 @@ def import_students_from_sheet():
     finally:
         db.close()
 
-    print(f"✔ Importación completa ({len(rows)} alumnos)")
-
     return {
         "status": "ok",
         "imported": len(rows)
     }
 
 
-# Permite ejecución directa
 if __name__ == "__main__":
     import_students_from_sheet()
