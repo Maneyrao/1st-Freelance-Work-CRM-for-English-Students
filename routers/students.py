@@ -4,7 +4,7 @@ from models.DB_Student import DB_Student
 from database.connection import SessionLocal
 from schemas.Student import StudentRead, StudentCreate, StudentUpdate
 from services.import_students import import_students_from_sheet
-from auth.jwt_auth import current_user   
+# from auth.jwt_auth import current_user   
 
 not_found = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No encontrado")
 
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/students", tags=["Students"])
 
 # conexión a la base de datos de sql
 def get_db():
-    db = SessionLocal()
+    db = SessionLocal() 
     try:
         yield db
     finally:
@@ -23,7 +23,7 @@ def get_db():
 def create_student(
     student: StudentCreate,
     db: Session = Depends(get_db),
-    user = Depends(current_user)    
+    # user = Depends(current_user)    
 ):
     new_student = DB_Student(**student.dict())
     db.add(new_student)
@@ -43,7 +43,7 @@ def get_students(
     activo: bool | None = None,
     id: int | None = None,
     db: Session = Depends(get_db),
-    user = Depends(current_user)    
+    # user = Depends(current_user)    
 ):
     query = db.query(DB_Student)
 
@@ -64,7 +64,7 @@ def get_students(
 def desactivar_student(
     student_id: int,
     db: Session = Depends(get_db),
-    user = Depends(current_user)    
+    # user = Depends(current_user)    
 ):
     student = db.query(DB_Student).filter(DB_Student.id == student_id).first()
     
@@ -83,7 +83,7 @@ def desactivar_student(
 def activar_student(
     student_id: int,
     db: Session = Depends(get_db),
-    user = Depends(current_user)    
+    # user = Depends(current_user)    
 ):
     student = db.query(DB_Student).filter(DB_Student.id == student_id).first()
     
@@ -106,7 +106,7 @@ def actualizar_pago(
     id: int,
     estado: bool,
     db: Session = Depends(get_db),
-    user = Depends(current_user)    
+    # user = Depends(current_user)    
 ):
     # 1. Buscar al alumno
     student = db.query(DB_Student).filter(DB_Student.id == id).first()
@@ -131,7 +131,7 @@ def actualizar_pago(
 @router.post("/sync", status_code=200)
 def sync_students(
     db: Session = Depends(get_db),
-    user = Depends(current_user)    
+    # user = Depends(current_user)    
 ):
     try:
         resultado = import_students_from_sheet()
@@ -147,7 +147,7 @@ def sync_students(
 @router.get("/recaudacion")
 def obtener_recaudacion(
     db: Session = Depends(get_db),
-    user = Depends(current_user)    
+    # user = Depends(current_user)    
 ):
     # Filtrar SOLO activos
     students = db.query(DB_Student).filter(DB_Student.activo == True).all()
@@ -195,7 +195,7 @@ def actualizar_alumno(
     student_id: int,
     info: StudentUpdate,
     db: Session = Depends(get_db),
-    user = Depends(current_user)    
+    # user = Depends(current_user)    
 ):
 
     student = db.query(DB_Student).filter(DB_Student.id == student_id).first()
